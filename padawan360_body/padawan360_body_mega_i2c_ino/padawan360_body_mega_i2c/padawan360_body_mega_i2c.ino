@@ -108,6 +108,7 @@ int turnDirection = 20;
 // Pin number to pull a relay high/low to trigger my upside down compressed air like R2's extinguisher
 #define EXTINGUISHERPIN 3
 
+#include <CytronMotorDriver.h>
 #include <Sabertooth.h>
 #include <MP3Trigger.h>
 #include <Wire.h>
@@ -116,7 +117,6 @@ int turnDirection = 20;
 
 /////////////////////////////////////////////////////////////////
 Sabertooth Sabertooth2x(128, Serial1);
-Sabertooth Syren10(128, Serial2);
 
 // Satisfy IDE, which only needs to see the include statment in the ino.
 #ifdef dobogusinclude
@@ -168,16 +168,11 @@ boolean isHPOn = false;
 MP3Trigger mp3Trigger;
 USB Usb;
 XBOXRECV Xbox(&Usb);
+CytronMD Cytron(PWM_DIR, 3, 2); // PWM = Pin 3, DIR = Pin 4.
 
 void setup() {
   Serial1.begin(SABERTOOTHBAUDRATE);
   Serial2.begin(DOMEBAUDRATE);
-
-#if defined(SYRENSIMPLE)
-  Syren10.motor(0);
-#else
-  Syren10.autobaud();
-#endif
 
   // Send the autobaud command to the Sabertooth controller(s).
   /* NOTE: *Not all* Sabertooth controllers need this command.
@@ -196,8 +191,7 @@ void setup() {
 
 
   Sabertooth2x.setTimeout(950);
-  Syren10.setTimeout(950);
-
+  
   pinMode(EXTINGUISHERPIN, OUTPUT);
   digitalWrite(EXTINGUISHERPIN, HIGH);
 
@@ -242,7 +236,7 @@ void loop() {
   if (!Xbox.XboxReceiverConnected || !Xbox.Xbox360Connected[0]) {
     Sabertooth2x.drive(0);
     Sabertooth2x.turn(0);
-    Syren10.motor(1, 0);
+    Cytron.setSpeed(0);
     firstLoadOnConnect = false;
     return;
   }
@@ -304,19 +298,11 @@ void loop() {
         mp3Trigger.play(random(32, 52));
       }
       if (automateAction < 4) {
-#if defined(SYRENSIMPLE)
-        Syren10.motor(turnDirection);
-#else
-        Syren10.motor(1, turnDirection);
-#endif
+        Cytron.setSpeed(turnDirection);
 
         delay(750);
 
-#if defined(SYRENSIMPLE)
-        Syren10.motor(0);
-#else
-        Syren10.motor(1, 0);
-#endif
+        Cytron.setSpeed(turnDirection);
 
         if (turnDirection > 0) {
           turnDirection = -45;
@@ -573,8 +559,7 @@ void loop() {
     //stick in dead zone - don't spin dome
     domeThrottle = 0;
   }
-
-  Syren10.motor(1, domeThrottle);
+Cytron.setSpeed(domeThrottle);
 } // END loop()
 
 void triggerI2C(byte deviceID, byte eventID) {
